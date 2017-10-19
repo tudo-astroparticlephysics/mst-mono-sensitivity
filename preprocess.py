@@ -2,12 +2,11 @@ from ctapipe.calib.camera.r1 import HessioR1Calibrator
 from ctapipe.calib.camera.dl0 import CameraDL0Reducer
 from ctapipe.calib.camera import CameraDL1Calibrator
 from ctapipe.image.charge_extractors import LocalPeakIntegrator
-from ctapipe.image import tailcuts_clean
-from ctapipe.image import hillas_parameters_4 as hillas_parameters
+from ctapipe.image import tailcuts_clean, hillas_parameters
 from ctapipe.io.hessio import hessio_event_source
 import pickle
 import os
-
+import multiprocessing.Pool
 
 
 def set_right_tel(Filename):
@@ -101,12 +100,14 @@ dl1_calibrator = CameraDL1Calibrator(
 )
 
 
-save_info = []
 try:
     source = hessio_event_source(Filename, allowed_tels=right_tel)
 except:
     os.exit(1)
+pool = Pool(processe=4)
+result = []
 for event in source:
-    save_info.append(process_event(event, r1, dl0, dl1_calibrator))
-
+    result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,)))
+save_info = [p.get() for p in result]
+i = 0
 pickle.dump(save_info, open(str(i) + "_ergebnisse.pickle", "wb"))
