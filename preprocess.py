@@ -133,7 +133,7 @@ for i in Liste:
         source = hessio_event_source(Filename, allowed_tels=right_tel)
     except:
         os.exit(1)
-    pool = Pool(processe=4)
+    pool = Pool(processes=4)
     result = []
     for event in source:
         result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,i,)))
