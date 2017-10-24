@@ -2,3 +2,5 @@
 *.jpg
 .DS_Store
 .test
+*.pdf
+._.*

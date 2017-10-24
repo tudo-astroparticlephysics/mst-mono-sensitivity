@@ -7,6 +7,7 @@ from ctapipe.io.hessio import hessio_event_source
 import pickle
 import os
 from multiprocessing import Pool
+import sys
 
 
 def set_right_tel(Filename):
@@ -18,6 +19,7 @@ def set_right_tel(Filename):
                 if tel_id not in right_tel:
                     right_tel.append(tel_id)
     return right_tel
+
 
 def calibration(event, r1, dl0, dl1):
     r1.calibrate(event)
@@ -57,8 +59,9 @@ def set_mc(event_info, event, tel_id):
     event_info["tel_id"].append(tel_id)
     return event_info
 
+
 def add_tp(save_info, cleaning_mask, mc):
-    arten = ["Reinheit", "Effizienz", "Genauigkeit"]
+    arten = ["Reinheit", "Effizienz", "Genauigkeit", "TP", "FP", "TN", "FN"]
     for i in arten:
         if i not in save_info:
             save_info[i] = []
@@ -80,16 +83,22 @@ def add_tp(save_info, cleaning_mask, mc):
     save_info["Reinheit"].append(tp / (tp + fp))
     save_info["Effizienz"].append(tp / (tp + fn))
     save_info["Genauigkeit"].append((tp + tn) / (tp + tn + fp + fn))
+
+    save_info["TP"].append(tp)
+    save_info["FP"].append(fp)
+    save_info["TN"].append(tn)
+    save_info["FN"].append(fn)
     return save_info
 
-def process_event(event, r1, dl0, dl1, thresh):
+
+def process_event(event, r1, dl0, dl1, thresh, boundary):
     event_info = {}
 
     calibration(event, r1, dl0, dl1)
     for tel_id in event.r0.tels_with_data:
         image = event.dl1.tel[tel_id].image[0]
         geom = event.inst.subarray.tel[tel_id].camera
-        cleaning_mask = tailcuts_clean(geom, image, picture_thresh=thresh, boundary_thresh=5)
+        cleaning_mask = tailcuts_clean(geom, image, picture_thresh=thresh, boundary_thresh=boundary)
         if len(image[cleaning_mask]) == 0:
             continue
         clean = image.copy()
@@ -109,7 +118,10 @@ except:
     right_tel = []
 
 Filename = "../Master_Daten/gammas/gamma_20deg_0deg_run35613___cta-prod2_desert-1640m-Aar.simtel.gz"
-
+nummer = str(0)
+if len(sys.argv) == 3:
+    nummer = sys.argv[1]
+    Filename = sys.argv[2]
 if right_tel == []:
     right_tel = set_right_tel(Filename)
     pickle.dump(right_tel, open("right_tel.pickle", "wb"))
@@ -129,23 +141,17 @@ dl1_calibrator = CameraDL1Calibrator(
 Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 for i in Liste:
-    print(i)
-    save_info = []
-    try:
-        source = hessio_event_source(Filename, allowed_tels=right_tel)
-    except:
-        os.exit(1)
+    for j in Liste:
+        if j > i:
+            continue
+        save_info = []
+        try:
+            source = hessio_event_source(Filename, allowed_tels=right_tel)
+        except:
+            os.exit(1)
 
-    for event in source:
-        event_info = process_event(event, r1, dl0, dl1_calibrator,i)
-        save_info.append(event_info[0])
-    '''
-    pool = Pool(processes=4)
-    result = []
-    for event in source:
-        result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,i,)))
-    for j in range(len(result)):
-        event_info = result[j]
-        save_info.append(event_info[0])
-    '''
-    pickle.dump(save_info, open(str(i) + "_ergebnisse.pickle", "wb"))
+        for event in source:
+            event_info = process_event(event, r1, dl0, dl1_calibrator, i, j)
+            save_info.append(event_info[0])
+
+        pickle.dump(save_info, open("F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
