@@ -57,14 +57,39 @@ def set_mc(event_info, event, tel_id):
     event_info["tel_id"].append(tel_id)
     return event_info
 
+def add_tp(save_info, cleaning_mask, mc):
+    arten = ["Reinheit", "Effizienz", "Genauigkeit"]
+    for i in arten:
+        if i not in save_info:
+            save_info[i] = []
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
+    for i in range(len(cleaning_mask)):
+        if cleaning_mask[i] == False:
+            if mc[i] == 0:
+                tn += 1
+            else:
+                fn += 1
+        else:
+            if mc[i] == 0:
+                fp += 1
+            else:
+                tp += 1
+    save_info["Reinheit"].append(tp / (tp + fp))
+    save_info["Effizienz"].append(tp / (tp + fn))
+    save_info["Genauigkeit"].append((tp + tn) / (tp + tn + fp + fn))
+    return save_info
 
-def process_event(event, r1, dl0, dl1):
+def process_event(event, r1, dl0, dl1, thresh):
     event_info = {}
+
     calibration(event, r1, dl0, dl1)
     for tel_id in event.r0.tels_with_data:
         image = event.dl1.tel[tel_id].image[0]
         geom = event.inst.subarray.tel[tel_id].camera
-        cleaning_mask = tailcuts_clean(geom, image, picture_thresh=10, boundary_thresh=7)
+        cleaning_mask = tailcuts_clean(geom, image, picture_thresh=thresh, boundary_thresh=5)
         if len(image[cleaning_mask]) == 0:
             continue
         clean = image.copy()
@@ -72,6 +97,7 @@ def process_event(event, r1, dl0, dl1):
         hillas = hillas_parameters(geom, image=clean)
         event_info = set_hillas(event_info, hillas)
         event_info = set_mc(event_info, event, tel_id)
+        event_info = set_mc(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
     return event_info
 
 
@@ -99,15 +125,16 @@ dl1_calibrator = CameraDL1Calibrator(
     extractor=None,
 )
 
+Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
-try:
-    source = hessio_event_source(Filename, allowed_tels=right_tel)
-except:
-    os.exit(1)
-pool = Pool(processe=4)
-result = []
-for event in source:
-    result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,)))
-save_info = [p.get() for p in result]
-i = 0
-pickle.dump(save_info, open(str(i) + "_ergebnisse.pickle", "wb"))
+for i in Liste:
+    try:
+        source = hessio_event_source(Filename, allowed_tels=right_tel)
+    except:
+        os.exit(1)
+    pool = Pool(processe=4)
+    result = []
+    for event in source:
+        result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,i,)))
+    save_info = [p.get() for p in result]
+    pickle.dump(save_info, open(str(i) + "_ergebnisse.pickle", "wb"))

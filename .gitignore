@@ -1,0 +1,4 @@
+*.pickle
+*.jpg
+.DS_Store
+.test
