@@ -97,7 +97,7 @@ def process_event(event, r1, dl0, dl1, thresh):
         hillas = hillas_parameters(geom, image=clean)
         event_info = set_hillas(event_info, hillas)
         event_info = set_mc(event_info, event, tel_id)
-        event_info = set_mc(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
+        event_info = add_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
         break
     return [event_info]
 
