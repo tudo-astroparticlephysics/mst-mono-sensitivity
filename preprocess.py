@@ -6,7 +6,7 @@ from ctapipe.image import tailcuts_clean, hillas_parameters
 from ctapipe.io.hessio import hessio_event_source
 import pickle
 import os
-import multiprocessing.Pool
+from multiprocessing import Pool
 
 
 def set_right_tel(Filename):
@@ -128,6 +128,7 @@ dl1_calibrator = CameraDL1Calibrator(
 Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 for i in Liste:
+    print(i)
     try:
         source = hessio_event_source(Filename, allowed_tels=right_tel)
     except:
