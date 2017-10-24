@@ -98,7 +98,8 @@ def process_event(event, r1, dl0, dl1, thresh):
         event_info = set_hillas(event_info, hillas)
         event_info = set_mc(event_info, event, tel_id)
         event_info = set_mc(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
-    return event_info
+        break
+    return [event_info]
 
 
 right_tel = []
@@ -129,13 +130,22 @@ Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 for i in Liste:
     print(i)
+    save_info = []
     try:
         source = hessio_event_source(Filename, allowed_tels=right_tel)
     except:
         os.exit(1)
+
+    for event in source:
+        event_info = process_event(event, r1, dl0, dl1_calibrator,i)
+        save_info.append(event_info[0])
+    '''
     pool = Pool(processes=4)
     result = []
     for event in source:
         result.append(pool.apply_async(process_event, args=(event, r1, dl0, dl1_calibrator,i,)))
-    save_info = [p.get() for p in result]
+    for j in range(len(result)):
+        event_info = result[j]
+        save_info.append(event_info[0])
+    '''
     pickle.dump(save_info, open(str(i) + "_ergebnisse.pickle", "wb"))
