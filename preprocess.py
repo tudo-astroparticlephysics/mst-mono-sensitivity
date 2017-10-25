@@ -140,6 +140,7 @@ dl1_calibrator = CameraDL1Calibrator(
 
 Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
+os.system('mkdir -p results')
 for i in Liste:
     for j in Liste:
         if j > i:
@@ -154,4 +155,4 @@ for i in Liste:
             event_info = process_event(event, r1, dl0, dl1_calibrator, i, j)
             save_info.append(event_info[0])
 
-        pickle.dump(save_info, open("F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
+        pickle.dump(save_info, open("results/F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
