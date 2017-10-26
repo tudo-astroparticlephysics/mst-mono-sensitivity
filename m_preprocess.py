@@ -16,7 +16,7 @@ for i in range(len(Files)):
     if i == len(Files) - 1:
         continue
     async_result.append(pool.apply_async(open, (i, Files[i],)))
-    time.sleep(120)
+    # time.sleep(120)
 pool.close()
 
 for i in range(len(async_result)):

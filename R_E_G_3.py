@@ -54,7 +54,7 @@ def plot_sen(rein_g, rein_delta_g, eff_g, eff_delta_g, gen_g, gen_delta_g, x, y,
 
 
 def plot_sensetivity_3():
-    Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    Liste = [0,1,2,3,4,5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
     rein_g = []
     rein_delta_g = []

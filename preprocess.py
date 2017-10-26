@@ -138,10 +138,11 @@ dl1_calibrator = CameraDL1Calibrator(
     extractor=None,
 )
 
-Liste = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+Liste = [0, 1, 2, 3, 4]
+Liste2 = [5,6,7,8,9,10,11,12,13,14,15,16,17]
 
 os.system('mkdir -p results')
-for i in Liste:
+for i in Liste2:
     for j in Liste:
         if j > i:
             continue
