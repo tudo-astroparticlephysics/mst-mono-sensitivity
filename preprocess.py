@@ -29,25 +29,30 @@ def calibration(event, r1, dl0, dl1):
 
 def set_hillas(event_info, hillas):
     arten = ["size", "cen_x", "cen_y", "lenght", "width", "r", "phi", "psi", "miss", "skewness", "kurtosis"]
+    #              ,       m,       m,        m,       m,   m,   rad,   rad,      m
     for i in range(len(hillas)):
         art = arten[i]
         if art not in event_info:
             event_info[art] = []
-        event_info[art].append(hillas[i])
+        try:
+            event_info[art].append(hillas[i].value)
+        except:
+            event_info[art].append(hillas[i])
     return event_info
 
 
 def set_mc(event_info, event, tel_id):
-    arten = ["mc_E", "mc_altitude", "mc_azimuth", "mc_core_x", "mc_core_y", "mc_h_first_int", "mc_azimuth_raw", "mc_altitude_raw", "mc_azimuth_cor", "mc_altitude_cor", "mc_altitude_raw", "mc_time_slice", "mc_refstep", "camera_rotation_angle", "tel_id", "mc_gamma_proton"]
+    arten = ["mc_E", "mc_altitude", "mc_azimuth", "mc_core_x", "mc_core_y", "mc_h_first_int", "mc_azimuth_raw", "mc_altitude_raw", "mc_azimuth_cor", "mc_altitude_cor", "mc_time_slice", "mc_refstep", "camera_rotation_angle", "tel_id", "mc_gamma_proton"]
+    #           Tev,           rad,          rad,           m,           m,                m,                 ,                  ,                 ,                  ,                ,             ,                        ,         ,                  ]
     for i in arten:
         if i not in event_info:
             event_info[i] = []
-    event_info["mc_E"].append(event.mc.energy)
-    event_info["mc_altitude"].append(event.mc.alt)
-    event_info["mc_azimuth"].append(event.mc.az)
-    event_info["mc_core_x"].append(event.mc.core_x)
-    event_info["mc_core_y"].append(event.mc.core_y)
-    event_info["mc_h_first_int"].append(event.mc.h_first_int)
+    event_info["mc_E"].append(event.mc.energy.value)
+    event_info["mc_altitude"].append(event.mc.alt.value)
+    event_info["mc_azimuth"].append(event.mc.az.value)
+    event_info["mc_core_x"].append(event.mc.core_x.value)
+    event_info["mc_core_y"].append(event.mc.core_y.value)
+    event_info["mc_h_first_int"].append(event.mc.h_first_int.value)
     event_info["mc_azimuth_raw"].append(event.mc.tel[tel_id].azimuth_raw)
     event_info["mc_altitude_raw"].append(event.mc.tel[tel_id].altitude_raw)
     event_info["mc_azimuth_cor"].append(event.mc.tel[tel_id].azimuth_cor)
@@ -55,8 +60,8 @@ def set_mc(event_info, event, tel_id):
     event_info["mc_time_slice"].append(event.mc.tel[tel_id].time_slice)
     event_info["mc_refstep"].append(event.mc.tel[tel_id].meta['refstep'])
     event_info["camera_rotation_angle"].append(event.inst.camera_rotation_angle[tel_id])
-    event_info["mc_gamma_proton"].append(event.mc.shower_primary_id)
     event_info["tel_id"].append(tel_id)
+    event_info["mc_gamma_proton"].append(event.mc.shower_primary_id)
     return event_info
 
 
@@ -138,11 +143,10 @@ dl1_calibrator = CameraDL1Calibrator(
     extractor=None,
 )
 
-Liste = [0, 1, 2, 3, 4]
-Liste2 = [5,6,7,8,9,10,11,12,13,14,15,16,17]
+Liste = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 os.system('mkdir -p results')
-for i in Liste2:
+for i in Liste:
     for j in Liste:
         if j > i:
             continue

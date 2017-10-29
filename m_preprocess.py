@@ -4,7 +4,7 @@ import time
 
 
 def open(nummer, name):
-    os.system('python3 preprocess.py ' + str(nummer) + ' "' + name + '"')
+    os.system('nice -n 10 python3 preprocess.py ' + str(nummer) + ' "' + name + '"')
     return True
 
 
