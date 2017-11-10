@@ -96,11 +96,12 @@ def add_tp(save_info, cleaning_mask, mc):
     return save_info
 
 
-def process_event(event, r1, dl0, dl1, thresh, boundary):
-    event_info = {}
-
+def process_event(event, r1, dl0, dl1, thresh, boundary, index, store):
+    Keylist = ['size', 'cen_x', 'cen_y', 'lenght', 'width', 'r', 'phi', 'psi', 'miss', 'skewness', 'kurtosis', 'mc_E', 'mc_altitude', 'mc_azimuth', 'mc_core_x', 'mc_core_y', 'mc_h_first_int', 'mc_azimuth_raw', 'mc_altitude_raw', 'mc_azimuth_cor', 'mc_altitude_cor', 'mc_time_slice', 'mc_refstep', 'camera_rotation_angle', 'tel_id', 'mc_gamma_proton', 'Reinheit', 'Effizienz', 'Genauigkeit', 'TP', 'FP', 'TN', 'FN']
+    err = False
     calibration(event, r1, dl0, dl1)
     for tel_id in event.r0.tels_with_data:
+        event_info = {}
         image = event.dl1.tel[tel_id].image[0]
         geom = event.inst.subarray.tel[tel_id].camera
         cleaning_mask = tailcuts_clean(geom, image, picture_thresh=thresh, boundary_thresh=boundary)
@@ -112,8 +113,17 @@ def process_event(event, r1, dl0, dl1, thresh, boundary):
         event_info = set_hillas(event_info, hillas)
         event_info = set_mc(event_info, event, tel_id)
         event_info = add_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
-        break
-    return [event_info]
+        for key in Keylist:
+            if key not in Ergebnisse[l]:
+                err = True
+                break
+            Ergebniss[key] = np.array(Ergebnisse[l][key])
+            df = pd.DataFrame(Ergebniss, index=[index])
+            store.append('events', df)
+            index += 1
+        if err:
+            break
+    return store, index
 
 
 right_tel = []
@@ -150,14 +160,15 @@ for i in Liste:
     for j in Liste:
         if j > i:
             continue
-        save_info = []
-        try:
-            source = hessio_event_source(Filename, allowed_tels=right_tel)
-        except:
-            os.exit(1)
+        with pd.HDFStore('hdf5_2/PT' + str(i) + '_BT' + str(j) + '.hdf5', 'w') as store:
+            save_info = []
+            try:
+                source = hessio_event_source(Filename, allowed_tels=right_tel)
+            except:
+                os.exit(1)
 
-        for event in source:
-            event_info = process_event(event, r1, dl0, dl1_calibrator, i, j)
-            save_info.append(event_info[0])
+            for event in source:
+                store, index = process_event(event, r1, dl0, dl1_calibrator, i, j, index, store)
+                #save_info.append(event_info[0])
 
-        pickle.dump(save_info, open("results/F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
+            #pickle.dump(save_info, open("results/F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
