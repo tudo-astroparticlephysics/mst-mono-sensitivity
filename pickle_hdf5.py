@@ -77,12 +77,13 @@ def pi_to_hdf(i, j):
     index = 0
     with pd.HDFStore('hdf5/PT' + str(i) + '_BT' + str(j) + '.hdf5', 'w') as store:
         for k in file_n:
-            #print(str(i) + "\t" + str(j) + "\t" + str(k))
+            print(str(i) + "\t" + str(j) + "\t" + str(k))
             try:
                 Ergebnisse = pickle.load(open("results/F" + str(k) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "rb"))
             except:
                 continue
             for l in range(len(Ergebnisse)):
+                #print(str(l) + "/" + str(len(Ergebnisse)))
                 if 'size' not in Ergebnisse[l]:
                     Anzahl += 1
                     continue
@@ -93,7 +94,6 @@ def pi_to_hdf(i, j):
                             err = True
                             break
                         Ergebniss[key] = np.array(Ergebnisse[l][key])
-
                     if err:
                         print("\t\t\tError")
                         Anzahl += 1
@@ -112,7 +112,8 @@ def pi_to_hdf(i, j):
     return True
 
 
-#pi_to_hdf(7, 2)
+pi_to_hdf(7, 2)
+'''
 pool = multiprocessing.Pool(processes=6)
 async_result = []
 
@@ -127,3 +128,4 @@ pool.close()
 for i in range(len(async_result)):
     print(str(i + 1) + "/" + str(len(async_result)))
     geschaftt = async_result[i].get()
+'''
