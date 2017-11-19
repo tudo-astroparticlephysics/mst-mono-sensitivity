@@ -1,9 +1,12 @@
 *.pickle
 *.jpg
-.DS_Store
-.test
 *.pdf
-._.*
 *.hdf5
+*.yaml
+
+._.*
+.DS_Store
+
 hdf5
 E_result
+conf

@@ -18,7 +18,7 @@ def plot_sen(rein_g, rein_delta_g, eff_g, eff_delta_g, gen_g, gen_delta_g, x, y,
     for k in file_n:
         print("\t\t" + str(k))
         try:
-            Ergebnisse = pickle.load(open("results/F" + str(k) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "rb"))
+            Ergebnisse = pickle.load(open("preprocess_pickle/F" + str(k) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "rb"))["info"]
         except:
             return rein_g, rein_delta_g, eff_g, eff_delta_g, gen_g, gen_delta_g, x, y
 

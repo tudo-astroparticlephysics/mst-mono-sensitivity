@@ -9,10 +9,9 @@ def open(nummer, name):
 
 
 Files = os.popen('find ../Master_Daten/gammas/* -name "*.simtel.gz"').read().split('\n')
-pool = multiprocessing.Pool(processes=2)
+pool = multiprocessing.Pool(processes=4)
 async_result = []
 for i in range(len(Files)):
-    print(str(i + 1) + "\t" + str(len(Files)))
     if i == len(Files) - 1:
         continue
     async_result.append(pool.apply_async(open, (i, Files[i],)))
