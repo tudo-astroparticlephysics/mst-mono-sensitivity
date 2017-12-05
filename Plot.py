@@ -161,4 +161,25 @@ def plot_sensetivity():
     plt.clf()
 
 
-plot_sensetivity()
+def plot_num_tel():
+    file_n = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    Ergebnisse = []
+    for k in file_n:
+        try:
+            Ergebniss = pickle.load(open("preprocess_pickle/F" + str(k) + "_num_tel_active.pickle", "rb"))
+        except:
+            return
+        Ergebnisse += Ergebniss
+    Ergebnisse = np.array(Ergebnisse)
+    plt.hist(Ergebnisse, np.amax(Ergebnisse) - np.amin(Ergebnisse) + 1)
+    plt.title('Number per event (middle:' + str(np.round(np.mean(Ergebnisse), 2)) + ')')
+    plt.yscale("log")
+    plt.xlabel('Telescopes per event')
+    plt.ylabel('Number')
+    plt.tight_layout()
+    plt.savefig('Bilder/num_tel.pdf')
+    plt.clf()
+
+
+#plot_sensetivity()
+plot_num_tel()

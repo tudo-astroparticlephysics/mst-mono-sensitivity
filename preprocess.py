@@ -10,6 +10,29 @@ from multiprocessing import Pool
 import sys
 import pandas as pd
 import numpy as np
+import time
+
+
+def string_len(string, lenght):
+    string = str(string)
+    ersetzung = " "
+    if lenght == 2:
+        ersetzung = "0"
+    if len(string) < lenght:
+        string = ersetzung + string
+    return string
+
+
+def get_num_events(Filename, right_tel):
+    try:
+        source = hessio_event_source(Filename, allowed_tels=right_tel)
+    except:
+        os.exit(1)
+
+    num_events = 0
+    for event in source:
+        num_events += 1
+    return num_events
 
 
 def set_right_tel(Filename):
@@ -99,48 +122,49 @@ def add_tp(save_info, cleaning_mask, mc):
     return save_info
 
 
-def process_event(event, r1, dl0, dl1, thresh, boundary, anzahl_gesamt):
+def process_event(event, r1, dl0, dl1, anzahl_gesamt, infos_save):
     Keylist = ['size', 'cen_x', 'cen_y', 'lenght', 'width', 'r', 'phi', 'psi', 'miss', 'skewness', 'kurtosis', 'mc_E', 'mc_altitude', 'mc_azimuth', 'mc_core_x', 'mc_core_y', 'mc_h_first_int', 'mc_spectral_index', 'mc_azimuth_raw', 'mc_altitude_raw', 'mc_azimuth_cor', 'mc_altitude_cor', 'mc_time_slice', 'mc_refstep', 'tel_id', 'mc_gamma_proton', 'Reinheit', 'Effizienz', 'Genauigkeit', 'TP', 'FP', 'TN', 'FN']
     calibration(event, r1, dl0, dl1)
 
-    event_infos = []
     for tel_id in event.r0.tels_with_data:
         anzahl_gesamt += 1
-        event_info = {}
-
-        if str(thresh) == "o":
-            event_info = set_mc(event_info, event, tel_id)
-            event_infos.append(event_info)
-            continue
-
         err = False
         image = event.dl1.tel[tel_id].image[0]
         geom = event.inst.subarray.tel[tel_id].camera
-        cleaning_mask = tailcuts_clean(geom, image, picture_thresh=thresh, boundary_thresh=boundary)
-        if len(image[cleaning_mask]) == 0:
-            continue
-        clean = image.copy()
-        clean[~cleaning_mask] = 0.0
-        hillas = hillas_parameters(geom, image=clean)
-        event_info = set_hillas(event_info, hillas)
-        event_info = set_mc(event_info, event, tel_id)
-        event_info = add_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
-        for key in Keylist:
-            if key not in event_info:
-                err = True
-            else:
-                drinne = False
-                wert = event_info[key][0]
-                if wert >= 0:
-                    drinne = True
-                elif wert < 0:
-                    drinne = True
-                if drinne is False:
-                    err = True
-        if err:
-            continue
-        event_infos.append(event_info)
-    return event_infos, anzahl_gesamt
+
+        for i in infos_save.keys():
+            for j in infos_save[i].keys():
+                if i == "o":
+                    event_info = {}
+                    event_info = set_mc(event_info, event, tel_id)
+                    infos_save[i][j].append(event_info)
+                    continue
+                cleaning_mask = tailcuts_clean(geom, image, picture_thresh=i, boundary_thresh=j)
+                if len(image[cleaning_mask]) == 0:
+                    continue
+                clean = image.copy()
+                clean[~cleaning_mask] = 0.0
+                event_info = {}
+                hillas = hillas_parameters(geom, image=clean)
+                event_info = set_hillas(event_info, hillas)
+                event_info = set_mc(event_info, event, tel_id)
+                event_info = add_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
+                for key in Keylist:
+                    if key not in event_info:
+                        err = True
+                    else:
+                        drinne = False
+                        wert = event_info[key][0]
+                        if wert >= 0:
+                            drinne = True
+                        elif wert < 0:
+                            drinne = True
+                        if drinne is False:
+                            err = True
+                if err:
+                    continue
+                infos_save[i][j].append(event_info)
+    return infos_save, anzahl_gesamt
 
 
 right_tel = []
@@ -170,29 +194,49 @@ dl1_calibrator = CameraDL1Calibrator(
     extractor=None,
 )
 
-Liste = ["o", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+Liste = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+
+infos_save = {}
 
 anzahl_gesamt = 0
 os.system('mkdir -p preprocess_pickle')
 for i in Liste:
+    infos_save[i] = {}
     for j in Liste:
-        if i != "o" and j == "o":
+        if j > i:
             continue
-        if i != "o" and j > i:
-            continue
-        if i == "o":
-            j = "o"
-        print(str(i) + "\t" + str(j))
-        save_info = []
-        try:
-            source = hessio_event_source(Filename, allowed_tels=right_tel)
-        except:
-            os.exit(1)
-        for event in source:
-            event_infos, anzahl_gesamt = process_event(event, r1, dl0, dl1_calibrator, i, j, anzahl_gesamt)
-            for k in range(len(event_infos)):
-                save_info.append(event_infos[k])
-        data_container = {"info": save_info, "anzahl_ges": anzahl_gesamt}
+        infos_save[i][j] = []
+infos_save["o"] = {}
+infos_save["o"]["o"] = []
+
+num_events = get_num_events(Filename, right_tel)
+
+try:
+    source = hessio_event_source(Filename, allowed_tels=right_tel)
+except:
+    os.exit(1)
+anzahl = 0
+start_time = time.time()
+for event in source:
+    infos_save, anzahl_gesamt = process_event(event, r1, dl0, dl1_calibrator, anzahl_gesamt, infos_save)
+    anzahl += 1
+    if anzahl % 50 == 0:
+        zeit = (time.time() - start_time) * (num_events - anzahl) / anzahl
+        stunde = int(zeit / (60 * 60))
+        zeit = zeit - stunde * (60 * 60)
+        minute = int(zeit / 60)
+        zeit = int(zeit - minute * 60) + 1
+        if zeit == 60:
+            zeit = 0
+            minute += 1
+        if minute == 60:
+            minute = 0
+            stunde += 1
+
+        print(string_len(nummer, 2) + "\t" + string_len(anzahl, 5) + "/" + string_len(num_events, 5) + "\t" + string_len(stunde, 2) + ":" + string_len(minute, 2) + ":" + string_len(zeit, 2))
+
+
+for i in infos_save.keys():
+    for j in infos_save[i].keys():
+        data_container = {"info": infos_save[i][j], "anzahl_ges": anzahl_gesamt}
         pickle.dump(data_container, open("preprocess_pickle/F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))
-        if i == "o":
-            break

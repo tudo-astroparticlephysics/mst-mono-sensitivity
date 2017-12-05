@@ -6,78 +6,178 @@ use('Agg')
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from matplotlib.colors import LogNorm
+from uncertainties import ufloat
 
 
-def Energy(x, a, b):
-    return a * x**(-2) + b
+bins_def = 3 * np.logspace(-3, 2, 51)
+bins_def[50] = 350
 
 
-Files_temp = os.popen('find preprocess_pickle -name "*o*o*.pickle"').read().split('\n')
-Files = []
-for i in Files_temp:
-    if "o" in i:
-        Files.append(i)
+def File_array(PT, BT):
+    Files_temp = os.popen('find preprocess_pickle -name "F2*' + PT + '*' + BT + '*.pickle"').read().split('\n')
+    Files = []
+    for i in Files_temp:
+        if PT in i:
+            Files.append(i)
+    return Files
 
 
-Energie_array = []
-cor_x = []
-cor_y = []
+def Plot_E(Files, Name, alle):
+    Energie_array = []
+    for filename in Files:
+        try:
+            if alle:
+                E_info = pickle.load(open(filename, "rb"))["E_events"]
+                for l in E_info:
+                    Energie_array.append(l)
+            else:
+                E_info = pickle.load(open(filename, "rb"))["E_cut"]
+                for l in E_info:
+                    Energie_array.append(l)
+        except:
+            pass
+    print(Name + "\t" + str(len(Energie_array)))
+    Energie_array = np.array(Energie_array)
+    plt.xscale('log')
+    plt.yscale('log')
+    n, bins, patches = plt.hist(Energie_array, bins=bins_def, facecolor='green')
+    plt.xlabel('E/TeV')
+    plt.ylabel('Anzahl')
+    plt.title(r'Energie Verteiltung')
+    plt.tight_layout()
+    plt.savefig('Bilder/' + Name + '.pdf')
+    plt.clf()
+    return n
 
-for filename in Files:
-    Ergebnisse = pickle.load(open(filename, "rb"))["info"]
-    for l in range(len(Ergebnisse)):
-        if 'mc_E' not in Ergebnisse[l]:
+
+def return_num_etall(Files):
+    num_shower = 0
+    for filename in Files:
+        num_shower += pickle.load(open(filename, "rb"))["mc_header"]["mc_num_showers"]
+    return num_shower
+
+
+def Plot_cog(Files, Name):
+    cor_x = []
+    cor_y = []
+    for filename in Files:
+        Ergebnisse = pickle.load(open(filename, "rb"))["info"]
+        for l in range(len(Ergebnisse)):
+            cor_x.append(Ergebnisse[l]["mc_core_x"][0])
+            cor_y.append(Ergebnisse[l]["mc_core_y"][0])
+    plt.hist2d(np.array(cor_x), np.array(cor_y), bins=40, norm=LogNorm())
+    plt.colorbar()
+    plt.xlabel("COR_x")
+    plt.ylabel("COR_Y")
+    plt.tight_layout()
+    # plt.legend(loc='best')
+    plt.savefig('Bilder/' + Name + '.pdf')
+    plt.clf()
+
+
+def create_spektrum(n_cut, n_produkt, Name, E_mittel):
+    Ergebnis = []
+    for i in range(len(n_produkt)):
+        if n_cut[i] == 0 or n_produkt[i] == 0:
+            Ergebnis.append(0)
             continue
-        Energie_array.append(Ergebnisse[l]["mc_E"][0])
-        cor_x.append(Ergebnisse[l]["mc_core_x"][0])
-        cor_y.append(Ergebnisse[l]["mc_core_y"][0])
+        Ergebnis.append(n_cut[i] / n_produkt[i])
+    plt.plot(E_mittel, Ergebnis, ".")
+    plt.xscale('log')
+    plt.xlabel('E/TeV')
+    plt.ylabel('Effektiv')
+    plt.title(r'Energie Verteiltung')
+
+    plt.tight_layout()
+    plt.savefig('Bilder/' + Name + '.pdf')
+    plt.clf()
 
 
-print(str(min(cor_x)) + "\t" + str(max(cor_x)))
-print(str(min(cor_y)) + "\t" + str(max(cor_y)))
+def cal_flaeche(Files):
+    for filename in Files:
+        return 2 * np.pi * pickle.load(open(filename, "rb"))["mc_header"]["mc_core_range_Y"]**2
+
+################################################################################
+#                         Calculate E and COG spektrum                         #
+################################################################################
 
 
+Files = File_array("o", "o")
+n_all = Plot_E(Files, "Verteilung_E", True)
+Plot_cog(Files, "Verteilung_COR")
+
+
+################################################################################
+#                         Calculate E and COG spektrum                         #
+################################################################################
+
+
+Files = File_array("7", "2")
+n_cut = Plot_E(Files, "Verteilung_E_cut", False)
+Plot_cog(Files, "Verteilung_COR_cut")
+
+num_shower = return_num_etall(Files)
+################################################################################
+#                             Produktions spektrum                             #
+################################################################################
+N = []
+for i in range(len(bins_def) - 1):
+    N.append(-(1 / bins_def[i] - 1 / bins_def[i + 1]))
+
+multiplicator = num_shower * 10 / sum(N)
+N = np.array(N) * multiplicator
+E_produktion = []
+E_mittel = []
+for i in range(len(N)):
+    Energie_rein = (bins_def[i] + bins_def[i + 1]) / 2
+    E_mittel.append(Energie_rein)
+    for j in range(int(N[i])):
+        E_produktion.append(Energie_rein)
+n_produkt, bins, patches = plt.hist(E_produktion, bins=bins_def, facecolor='green')
 plt.xscale('log')
-binss = np.logspace(-3, 3, 50)
-n, bins, patches = plt.hist(np.array(Energie_array), bins=np.logspace(-3, 3, 50), facecolor='green')
+plt.yscale('log')
 plt.xlabel('E/TeV')
 plt.ylabel('Anzahl')
 plt.title(r'Energie Verteiltung')
-
 plt.tight_layout()
-plt.savefig('Bilder/Verteilung_E.pdf')
+plt.savefig('Bilder/Produktionsspektrum_E.pdf')
 plt.clf()
 
-
-plt.hist2d(np.array(cor_x), np.array(cor_y), bins=40, norm=LogNorm())
-plt.colorbar()
-plt.xlabel("COR_x")
-plt.ylabel("COR_Y")
-plt.tight_layout()
-# plt.legend(loc='best')
-plt.savefig('Bilder/Verteilung_COR.pdf')
-plt.clf()
+create_spektrum(n_cut, n_produkt, "Produktionsspektrum",E_mittel)
+create_spektrum(n_cut, n_all, "Produktionsspektrum_all",E_mittel)
+create_spektrum(n_all, n_produkt, "Produktionsspektrum_all_prod",E_mittel)
 
 
-x = []
-y = []
-for i in range(17, len(binss) - 8):
-    E_mid = (binss[i] + binss[i + 1]) / 2
-    x.append(E_mid)
-    y.append(n[i])
+# Calculate eff. Area
 
 
-params, covariance = curve_fit(Energy, x, y)
-E_theo = np.linspace(min(x), max(x))
+Files = File_array("7", "2")
+Flaeche = cal_flaeche(Files)
 
 
-plt.plot(E_theo, Energy(E_theo, *params), 'c-', label='Fit')
-plt.plot(x, y, 'r.', label='Daten', markersize=2)
+Anzahl_gesamt = 0
+Anzahl_clean = 0
 
-plt.xscale('log')
-plt.xlabel(r"$E$ / TeV")
-plt.ylabel(r"$dN/dE$")
-plt.tight_layout()
-plt.legend(loc='best')
-plt.savefig('Bilder/Produktionsspektrum.pdf')
-plt.clf()
+for filename in Files:
+    Ergebnisse = pickle.load(open(filename, "rb"))
+    Anzahl_gesamt += Ergebnisse["mc_header"]["mc_num_showers"]
+    Anzahl_clean += len(Ergebnisse["E_cut"])
+
+print(Anzahl_gesamt)
+print(len(E_produktion))
+print(Anzahl_clean)
+print(Anzahl_clean / Anzahl_gesamt)
+print(Flaeche)
+print(Flaeche * Anzahl_clean / Anzahl_gesamt)
+
+'''
+Verteilung_E	71574
+Verteilung_E_cut	71570
+
+
+Anzahl_shower_produziert:       1000000
+Shower Anzahl:  71570
+Verhältnis:     0.07157
+Fläche_ges:     39,269,908.16987241
+eff_Fläche:      2,810,547.3277177685
+'''
