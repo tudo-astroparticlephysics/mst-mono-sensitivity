@@ -65,6 +65,7 @@ def get_num_events(Filename, right_tel):
     image_3 = 0
     for event in source:
         num_events += 1
+        '''
         for tel_id in right_tel:
             camera_art = str(event.inst.subarray.tel[tel_id].camera)
             if camera_art == "FlashCam":
@@ -73,7 +74,8 @@ def get_num_events(Filename, right_tel):
                 image_2 += 1
             else:
                 image_3 += 1
-    return num_events, image_1, image_2, image_3
+        '''
+    return num_events
 
 
 def set_mc_header(event, hdf5):
@@ -174,7 +176,7 @@ def set_tel_info(event, right_tel, hdf5):
     dataset["tel_id"] = Array["tel_id"]
 
 
-def transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, image_3, new_data_name=None):
+def transfer_Data_to_hdf5(Filename, right_tel, num_events, new_data_name=None):
     try:
         source = hessio_event_source(Filename, allowed_tels=right_tel)
     except:
@@ -216,9 +218,6 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, ima
                 image1_index += 1
                 if image1_index == chunk_size:
                     dset_1 = hdf5.create_dataset('image1', data=image_infos["image"], chunks=(chunk_size, 1, 1764, 25), maxshape=(None, 1, 1764, 25), compression="gzip", compression_opts=9)
-                    hdf5.close()
-                    ohsD
-
                     image_infos["image"] = np.zeros((chunk_size, 1, 1764, 25))
                 elif image1_index % chunk_size == 0:
                     dset_1.resize(dset_1.shape[0] + chunk_size, axis=0)
@@ -315,9 +314,8 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, ima
     dataset["mc_gamma_proton"] = events_info["mc_gamma_proton"]
 
     #hdf5.create_dataset('image1', data=image_infos["image"], chunks=(10000,), maxshape=(None,))
-    #hdf5.create_dataset('image3', data=events_info["image_3"], chunks=(10000,), maxshape=(None,))
+    #hdf5.create_dataset('image3', data=image_infos["image_3"], chunks=(10000,), maxshape=(None,))
 
-    #dat_im_1["image"] = events_info["image"]
 
     hdf5.close()
     return new_data_name
@@ -325,16 +323,9 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, ima
 
 def main(Filename, Nummer):
     # Nummer, Filename = get_num_filename(argv)
-    #right_tel = set_right_tel(Filename)
-    #num_events, image_1, image_2, image_3 = get_num_events(Filename, right_tel)
-    right_tel = [22, 56, 90, 116, 121, 28, 62, 33, 67, 36, 37, 70, 39, 71, 73, 105, 107, 41, 42, 75, 76, 110, 24, 9, 11, 13, 14, 15, 16, 29, 30, 38, 43, 46, 47, 48, 49, 50, 58, 63, 64, 72, 77, 82, 83, 96, 97, 106, 111, 66, 104, 65, 12, 45, 79, 18, 52, 23, 57, 26, 91, 60, 94, 34, 68, 102, 17, 51, 84, 85, 92, 98, 25, 59, 21, 32, 55, 81, 89, 100, 101, 112, 117, 122, 10, 19, 20, 27, 35, 44, 53, 54, 61, 69, 78, 80, 87, 88, 95, 103, 113, 114, 115, 118, 119, 120, 123, 124, 125, 31, 40, 74, 86, 99, 93, 108, 109]
-    num_events = 2188
-    image_1 = 85332
-    image_2 = 85332
-    image_3 = 85332
-    print(image_1)
-    print(image_2)
-    print(image_3)
+    right_tel = set_right_tel(Filename)
+    #num_events = get_num_events(Filename, right_tel)
+
     new_data_name = transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, image_3)
 
 
