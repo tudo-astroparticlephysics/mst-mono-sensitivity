@@ -9,6 +9,11 @@ import pickle
 import numpy as np
 import h5py
 import time
+from tqdm import tqdm
+
+from matplotlib import use
+use('Agg')
+import matplotlib.pyplot as plt
 
 
 def string_len(string, length):
@@ -22,8 +27,8 @@ def string_len(string, length):
 
 
 def get_num_filename(argv):
-    Filename = "../Master_Daten/gammas/gamma_20deg_0deg_run35613___cta-prod2_desert-1640m-Aar.simtel.gz"
-    nummer = str(0)
+    Filename = "../Master_Daten/PROD3/LaPalma/gamma/gamma_20deg_0deg_run2___cta-prod3-lapalma3-2147m-LaPalma.simtel.gz"
+    nummer = "2"
     if len(sys.argv) == 3:
         nummer = sys.argv[1]
         Filename = sys.argv[2]
@@ -33,19 +38,57 @@ def get_num_filename(argv):
 def set_right_tel(Filename):
     right_tel = []
     try:
+        g
         return pickle.load(open("right_tel.pickle", "rb"))
     except:
         right_tel = []
-    source = hessio_event_source(Filename)
+    source = hessio_event_source(Filename, max_events=1)
     Anzahl = 0
     anzahl_cut = 0
+    Camera_infos = {}
     for event in source:
+        for tel_id in event.inst.telescope_ids:
+            Name = event.inst.subarray.tels[tel_id].optics.tel_type + "_" + event.inst.subarray.tels[tel_id].optics.mirror_type + "_" + str(event.inst.subarray.tel[tel_id].camera)
+            Name = "bla"
+            if Name not in Camera_infos:
+                Camera_infos[Name] = {"x":[], "y":[], "Anzahl":[]}
+            x_pos = event.inst.subarray.positions[tel_id][0].value
+            y_pos = event.inst.subarray.positions[tel_id][1].value
+            drinne = False
+            for i in range(len(Camera_infos[Name]["x"])):
+                if x_pos == Camera_infos[Name]["x"][i] and y_pos == Camera_infos[Name]["y"][i]:
+                    Camera_infos[Name]["Anzahl"][i] += 1
+                    drinne = True
+                    break
+            if drinne is False:
+                Camera_infos[Name]["x"].append(event.inst.subarray.positions[tel_id][0].value)
+                Camera_infos[Name]["y"].append(event.inst.subarray.positions[tel_id][1].value)
+                Camera_infos[Name]["Anzahl"].append(1)
+            if event.inst.subarray.tels[tel_id].optics.tel_type == "MST" and event.inst.subarray.tels[tel_id].optics.mirror_type == "DC":
+                right_tel.append(tel_id)
+
+        '''
         for tel_id in event.r0.tels_with_data:
             Anzahl += 1
-            if event.inst.subarray.tels[tel_id].optics.tel_type == "MST":
+            if event.inst.subarray.tels[tel_id].optics.tel_type == "MST":# and event.inst.subarray.tels[tel_id].optics.mirror_type == "DC":
                 if tel_id not in right_tel:
                     right_tel.append(tel_id)
                 anzahl_cut += 1
+        '''
+    alpha = 1
+    for key in Camera_infos.keys():
+        #plt.scatter(x, y, marker='o', c=rein_g)
+        print(Camera_infos[key]["Anzahl"])
+        plt.scatter(Camera_infos[key]["x"], Camera_infos[key]["y"], marker='o', c=Camera_infos[key]["Anzahl"])
+        alpha -= 0.25
+    plt.colorbar()
+    plt.title("Map Teleskopes")
+    plt.xlabel(r"x/m")
+    plt.ylabel(r"y/m")
+    plt.tight_layout()
+    plt.legend(loc='best')
+    plt.savefig('Bilder/Map.pdf')
+    plt.clf()
     print(len(right_tel))
     print(Anzahl)
     print(anzahl_cut)
@@ -60,22 +103,25 @@ def get_num_events(Filename, right_tel):
         os.exit(1)
 
     num_events = 0
-    image_1 = 0
-    image_2 = 0
-    image_3 = 0
+    anzahl_gesamt = 0
+    image1 = 0
+    image2 = 0
     for event in source:
         num_events += 1
-        '''
-        for tel_id in right_tel:
+        for tel_id in event.r0.tels_with_data:
+            anzahl_gesamt += 1
             camera_art = str(event.inst.subarray.tel[tel_id].camera)
             if camera_art == "FlashCam":
-                image_1 += 1
-            elif camera_art == "SCTCam":
-                image_2 += 1
+                image1 += 1
             else:
-                image_3 += 1
-        '''
-    return num_events
+                image2 += 1
+        if num_events == 25:
+            break
+    print(num_events)
+    print(anzahl_gesamt)
+    print(image1)
+    print(image2)
+    return num_events, image1, image2
 
 
 def set_mc_header(event, hdf5):
@@ -139,68 +185,73 @@ def set_mc(event, tel_id, events_info):
 
 
 def set_tel_info(event, right_tel, hdf5):
+    '''
     dataset = hdf5.create_dataset('tel_info', (len(right_tel),),
                                   dtype=[('subtype', 'i4'),
                                          ('type', 'i4'),
                                          ('mirror_type', 'i4'),
                                          ('geom', 'i4'),
                                          ('tel_id', 'i4')])
-    Array = {"subtype": [], "type": [], "mirror_type": [], "geom": [], "tel_id": []}
-    for tel_id in right_tel:
+    '''
+    Array = {"subtype": np.zeros(len(right_tel), dtype=np.dtype('uint8')), "type": np.zeros(len(right_tel), dtype=np.dtype('uint8')), "mirror_type": np.zeros(len(right_tel), dtype=np.dtype('uint8')), "geom": np.zeros(len(right_tel), dtype=np.dtype('uint8')), "tel_id": np.zeros(len(right_tel), dtype=np.dtype('uint8'))}
+    Image = {"image1": np.ones((len(right_tel), 1855, 1855), dtype=bool), "image2": np.ones((len(right_tel), 1764, 1764), dtype=bool)}
+    for i in range(len(right_tel)):
+        tel_id = right_tel[i]
         if event.inst.subarray.tels[tel_id].optics.tel_subtype == '':
-            Array["subtype"].append(0)
+            Array["subtype"][i] = 0
         else:
-            Array["subtype"].append(1)
+            Array["subtype"][i] = 1
 
         if event.inst.subarray.tels[tel_id].optics.tel_type == 'MST':
-            Array["type"].append(0)
+            Array["type"][i] = 0
         elif event.inst.subarray.tels[tel_id].optics.tel_type == 'LST':
-            Array["type"].append(1)
+            Array["type"][i] = 1
         else:
-            Array["type"].append(2)
+            Array["type"][i] = 2
 
         if event.inst.subarray.tels[tel_id].optics.mirror_type == 'DC':
-            Array["mirror_type"].append(0)
+            Array["mirror_type"][i] = 0
         else:
-            Array["mirror_type"].append(1)
+            Array["mirror_type"][i] = 1
 
         if str(event.inst.subarray.tel[tel_id].camera) == 'NectarCam':
-            Array["geom"].append(0)
+            Array["geom"][i] = 0
+            Image["image1"][i] = event.inst.subarray.tel[tel_id].camera.neighbor_matrix
         else:
-            Array["geom"].append(1)
-        Array["tel_id"].append(tel_id)
-    dataset["subtype"] = Array["subtype"]
-    dataset["type"] = Array["type"]
-    dataset["mirror_type"] = Array["mirror_type"]
-    dataset["geom"] = Array["geom"]
-    dataset["tel_id"] = Array["tel_id"]
+            Array["geom"][i] = 1
+            Image["image2"][i] = event.inst.subarray.tel[tel_id].camera.neighbor_matrix
+        Array["tel_id"][i] = tel_id
+    gr = hdf5.create_group("tel_info")
+    for key in Array.keys():
+        gr.create_dataset(key, data=Array[key])
+
+    for key in Image.keys():
+        gr.create_dataset(key, data=Image[key], compression="gzip", compression_opts=9)
 
 
-def transfer_Data_to_hdf5(Filename, right_tel, num_events, new_data_name=None):
+def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compression, compression_opts, new_data_name=None):
     try:
         source = hessio_event_source(Filename, allowed_tels=right_tel)
     except:
         os.exit(1)
 
     if new_data_name == None:
-        new_data_name = Filename.replace(".simtel.gz", ".hdf5")
-
+        new_data_name = Filename.replace(".simtel.gz", "_" + compression + "_" + str(compression_opts) + ".hdf5")
     if_first = True
     # np.concatenate np.vstack np.hstack np.append
     image1_index = 0
     image2_index = 0
-    image3_index = 0
     chunk_size = 1000
-    dset_1 = ""
-    dset_2 = ""
-    dset_3 = ""
-    image_infos = {"image": np.zeros((chunk_size, 1, 1764, 25)), "image_2": np.zeros((chunk_size, 1, 11328, 64)), "image_3": np.zeros((chunk_size, 2, 1855, 64))}
+    image_infos = {"image1": np.zeros((image1, 1, 1764, 25), dtype=np.dtype("uint16")), "image2": np.zeros((image2, 2, 1855, 64), dtype=np.dtype("uint16"))}
     events_info = {"mc_E": [], "mc_altitude": [], "mc_azimuth": [], "mc_core_x": [], "mc_core_y": [], "mc_h_first_int": [], "mc_azimuth_raw": [], "mc_altitude_raw": [], "mc_azimuth_cor": [], "mc_altitude_cor": [], "mc_time_slice": [], "mc_refstep": [], "tel_id": [], "mc_gamma_proton": [], "img_type": [], "img_index": []}
     new_image = 0
     hdf5 = h5py.File(new_data_name, 'w')
     shape_array = []
     anzahl = 0
     start_time = time.time()
+    # for event in tqdm(source):
+    pbar = tqdm(total=num_events)
+
     for event in source:
         if if_first:
             set_mc_header(event, hdf5)
@@ -209,126 +260,85 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, new_data_name=None):
         for tel_id in event.r0.tels_with_data:
             events_info = set_mc(event, tel_id, events_info)
             new_image = [event.r0.tel[tel_id].adc_samples]
-            new_image = np.array(new_image, dtype=np.dtype("int32"))
+            new_image = np.array(new_image, dtype=np.dtype("uint16"))
 
-            if new_image.shape[1] == 1 and new_image.shape[2] == 1764:
+            if new_image.shape[1] == 1:
                 events_info["img_type"].append(1)
                 events_info["img_index"].append(image1_index)
-                image_infos["image"][image1_index % chunk_size] = new_image
+                image_infos["image1"][image1_index] = new_image
                 image1_index += 1
-                if image1_index == chunk_size:
-                    dset_1 = hdf5.create_dataset('image1', data=image_infos["image"], chunks=(chunk_size, 1, 1764, 25), maxshape=(None, 1, 1764, 25), compression="gzip", compression_opts=9)
-                    image_infos["image"] = np.zeros((chunk_size, 1, 1764, 25))
-                elif image1_index % chunk_size == 0:
-                    dset_1.resize(dset_1.shape[0] + chunk_size, axis=0)
-                    dset_1[-chunk_size:] = image_infos["image"]
-                    image_infos["image"] = np.zeros((chunk_size, 1, 1764, 25))
-
                 '''
 
                 MST
                 DC
                 FlashCam
                 '''
-            elif new_image.shape[1] == 1:
+            else:
                 events_info["img_type"].append(2)
                 events_info["img_index"].append(image2_index)
-                image_infos["image_2"][image2_index % chunk_size] = new_image
+                image_infos["image2"][image2_index] = new_image
                 image2_index += 1
-                if image2_index == chunk_size:
-                    dset_2 = hdf5.create_dataset('image2', data=image_infos["image_2"], chunks=(chunk_size, 1, 11328, 64), maxshape=(None, 1, 11328, 64), compression="gzip", compression_opts=9)
-                    image_infos["image_2"] = np.zeros((chunk_size, 1, 11328, 64))
-                elif image2_index % chunk_size == 0:
-                    dset_2.resize(dset_2.shape[0] + chunk_size, axis=0)
-                    dset_2[-chunk_size:] = image_infos["image_2"]
-                    image_infos["image_2"] = np.zeros((100, 1, 11328, 64))
-                '''
-                SCT
-                MST
-                SC
-                SCTCam
-                '''
-            else:
-                events_info["img_type"].append(3)
-                events_info["img_index"].append(image3_index)
-                image_infos["image_3"][image3_index % chunk_size] = new_image
-                image3_index += 1
-                if image3_index == chunk_size:
-                    dset_3 = hdf5.create_dataset('image3', data=image_infos["image_3"], chunks=(chunk_size, 2, 1855, 64), maxshape=(None, 2, 1855, 64), compression="gzip", compression_opts=9)
-                    image_infos["image_3"] = np.zeros((chunk_size, 2, 1855, 64))
-                elif image3_index % chunk_size == 0:
-                    dset_3.resize(dset_3.shape[0] + chunk_size, axis=0)
-                    dset_3[-chunk_size:] = image_infos["image_3"]
-                    image_infos["image_3"] = np.zeros((100, 2, 1855, 64))
-
                 '''
 
                 MST
                 DC
                 NectarCam
                 '''
-        # if anzahl == 10:
-        #    break
         anzahl += 1
-        if anzahl % 50 == 0:
-            zeit = (time.time() - start_time) * (num_events - anzahl) / anzahl
-            stunde = int(zeit / (60 * 60))
-            zeit = zeit - stunde * (60 * 60)
-            minute = int(zeit / 60)
-            zeit = int(zeit - minute * 60) + 1
-            if zeit == 60:
-                zeit = 0
-                minute += 1
-            if minute == 60:
-                minute = 0
-                stunde += 1
-            print(string_len("02", 2) + "\t" + string_len(anzahl, 5) + "/" + string_len(num_events, 5) + "\t" + str(image1_index) + "," + str(image2_index) + "," + str(image3_index) + "\t" + string_len(stunde, 2) + ":" + string_len(minute, 2) + ":" + string_len(zeit, 2))
-    dataset = hdf5.create_dataset('events', (len(events_info["mc_E"]),),
-                                  dtype=[('mc_E', '<f8'),
-                                         ('mc_altitude', '<f8'),
-                                         ('mc_azimuth', '<f8'),
-                                         ('mc_core_x', '<f8'),
-                                         ('mc_core_y', '<f8'),
-                                         ('mc_h_first_int', '<f8'),
-                                         ('mc_azimuth_raw', '<f8'),
-                                         ('mc_altitude_raw', '<f8'),
-                                         ('mc_azimuth_cor', '<f8'),
-                                         ('mc_altitude_cor', '<f8'),
-                                         ('mc_time_slice', '<f8'),
-                                         ('mc_refstep', '<f8'),
-                                         ('tel_id', 'i2'),
-                                         ('mc_gamma_proton', 'i2')])
-    dataset["mc_E"] = events_info["mc_E"]
-    dataset["mc_altitude"] = events_info["mc_altitude"]
-    dataset["mc_azimuth"] = events_info["mc_azimuth"]
-    dataset["mc_core_x"] = events_info["mc_core_x"]
-    dataset["mc_core_y"] = events_info["mc_core_y"]
-    dataset["mc_h_first_int"] = events_info["mc_h_first_int"]
-    dataset["mc_azimuth_raw"] = events_info["mc_azimuth_raw"]
-    dataset["mc_altitude_raw"] = events_info["mc_altitude_raw"]
-    dataset["mc_azimuth_cor"] = events_info["mc_azimuth_cor"]
-    dataset["mc_altitude_cor"] = events_info["mc_altitude_cor"]
-    dataset["mc_time_slice"] = events_info["mc_time_slice"]
-    dataset["mc_refstep"] = events_info["mc_refstep"]
-    dataset["tel_id"] = events_info["tel_id"]
-    dataset["mc_gamma_proton"] = events_info["mc_gamma_proton"]
+        if anzahl % 25 == 0:
+            pbar.update(25)
 
-    #hdf5.create_dataset('image1', data=image_infos["image"], chunks=(10000,), maxshape=(None,))
-    #hdf5.create_dataset('image3', data=image_infos["image_3"], chunks=(10000,), maxshape=(None,))
+    pbar.update(anzahl % 25)
+    pbar.close()
 
+    gr = hdf5.create_group("events")
+    for key in events_info.keys():
+        if key == "tel_id" or key == "mc_gamma_proton":
+            gr.create_dataset(key, data=np.array(events_info[key], dtype=np.dtype('uint8')), compression="gzip", compression_opts=9)
+        else:
+            gr.create_dataset(key, data=np.array(events_info[key], dtype=np.dtype('float64')), compression="gzip", compression_opts=9)
 
+    gr_image = hdf5.create_group("image")
+    actuelle_time = time.time()
+    if compression == "gzip":
+        gr_image.create_dataset('image1', data=image_infos["image1"], compression="gzip", compression_opts=compression_opts)
+    elif compression == "no":
+        gr_image.create_dataset('image1', data=image_infos["image1"])
+    else:
+        gr_image.create_dataset('image1', data=image_infos["image1"], compression=compression)
+    print("image1\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
+    actuelle_time = time.time()
+    if compression == "gzip":
+        gr_image.create_dataset('image2', data=image_infos["image2"], compression="gzip", compression_opts=compression_opts)
+    elif compression == "no":
+        gr_image.create_dataset('image2', data=image_infos["image2"])
+    else:
+        gr_image.create_dataset('image2', data=image_infos["image2"], compression=compression)
+    print("image2\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
     hdf5.close()
     return new_data_name
 
 
-def main(Filename, Nummer):
-    # Nummer, Filename = get_num_filename(argv)
+def main(argv):
+    Nummer, Filename = get_num_filename(argv)
     right_tel = set_right_tel(Filename)
-    #num_events = get_num_events(Filename, right_tel)
-
-    new_data_name = transfer_Data_to_hdf5(Filename, right_tel, num_events, image_1, image_2, image_3)
-
-
+    #num_events, image1, image2 = get_num_events(Filename, right_tel)
+    num_events = 2185
+    image1 = 12494
+    image2 = 13517
+    '''
+    comp = {"lzf": [0], "szip": [0], "gzip": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
+    comp = {"no": [0]}
+    for compression in comp:
+        for compression_opts in comp[compression]:
+            print()
+            new_data_name = transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compression, compression_opts)
+            actuelle_time = time.time()
+            with h5py.File(new_data_name, 'r+') as f:
+                group = f.get('image')
+                for i in group.keys():
+                    info = group[i][20]
+            print("read\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
+    '''
 if __name__ == "__main__":
-    Files = os.popen('find ../Master_Daten/PROD3/* -name "*.simtel.gz"').read().split('\n')
-    main(Files[0], "2")
+    main(sys.argv)
