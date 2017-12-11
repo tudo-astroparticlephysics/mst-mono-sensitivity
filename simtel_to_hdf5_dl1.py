@@ -1,6 +1,7 @@
 from ctapipe.io.hessio import hessio_event_source
 from ctapipe.calib.camera.r1 import HessioR1Calibrator
 from ctapipe.calib.camera.dl0 import CameraDL0Reducer
+from ctapipe.calib.camera import CameraDL1Calibrator
 
 import pandas as pd
 import sys
@@ -247,14 +248,26 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
     except:
         os.exit(1)
 
+    r1 = HessioR1Calibrator(None, None)
+    dl0 = CameraDL0Reducer(None, None)
+    dl1_calibrator = CameraDL1Calibrator(
+        config=None,
+        tool=None,
+        extractor=None,
+    )
+
+
     if new_data_name == None:
-        new_data_name = Filename.replace(".simtel.gz", "_" + compression + "_" + str(compression_opts) + ".hdf5")
+        new_data_name = Filename.replace(".simtel.gz", "_" + compression + "_" + str(compression_opts) + "_dl1.hdf5")
     if_first = True
     # np.concatenate np.vstack np.hstack np.append
     image1_index = 0
     image2_index = 0
     chunk_size = 1000
-    image_infos = {"image1": np.zeros((image1, 1, 1764, 25), dtype=np.dtype("uint16")), "image2": np.zeros((image2, 2, 1855, 64), dtype=np.dtype("uint16")), "reference_pulse_shape1": np.zeros((image1, 1, 480), dtype=np.dtype("float64")), "reference_pulse_shape2": np.zeros((image2, 2, 250), dtype=np.dtype("float64")), "photo_electron_image1": np.zeros((image1,1764), dtype=np.dtype("uint16")), "photo_electron_image2": np.zeros((image2,1855), dtype=np.dtype("uint16"))}
+    image_infos = {"image1": np.zeros((image1,1, 1764), dtype=np.dtype("uint16")), "image2": np.zeros((image2, 2,1855), dtype=np.dtype("uint16")), "reference_pulse_shape1": np.zeros((image1, 1, 480), dtype=np.dtype("float64")), "reference_pulse_shape2": np.zeros((image2, 2, 250), dtype=np.dtype("float64")), "photo_electron_image1": np.zeros((image1,1764), dtype=np.dtype("uint16")), "photo_electron_image2": np.zeros((image2,1855), dtype=np.dtype("uint16"))}
+
+
+
     events_info = {"mc_azimuth_raw": [], "mc_altitude_raw": [], "mc_azimuth_cor": [], "mc_altitude_cor": [], "mc_time_slice": [], "mc_refstep": [], "tel_id": [], "img_type": [], "img_index": [], "event_id": []}
     event_info = {"mc_E": [], "mc_altitude": [], "mc_azimuth": [], "mc_core_x": [], "mc_core_y": [], "mc_h_first_int": [], "mc_gamma_proton": [], "trigger_gps_time":[]}
     new_image = 0
@@ -266,6 +279,9 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
     pbar = tqdm(total=num_events)
 
     for event in source:
+        r1.calibrate(event)
+        dl0.reduce(event)
+        dl1_calibrator.calibrate(event)
         if if_first:
             set_mc_header(event, hdf5)
             set_tel_info(event, right_tel, hdf5)
@@ -273,15 +289,15 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
         event_info = set_event_info(event, event_info)
         for tel_id in event.r0.tels_with_data:
             events_info = set_mc(event, tel_id, len(event_info["mc_E"]) - 1, events_info)
-            new_image = [event.r0.tel[tel_id].adc_samples]
+            new_image = [event.dl1.tel[tel_id].image]
             new_image = np.array(new_image, dtype=np.dtype("uint16"))
-
             if new_image.shape[1] == 1:
                 events_info["img_type"].append(1)
                 events_info["img_index"].append(image1_index)
                 image_infos["image1"][image1_index] = new_image
                 image_infos["reference_pulse_shape1"][image1_index] = np.array([event.mc.tel[tel_id].reference_pulse_shape], dtype=np.dtype("float64"))
                 image_infos["photo_electron_image1"][image1_index] = np.array([event.mc.tel[tel_id].photo_electron_image], dtype=np.dtype("float64"))
+
                 image1_index += 1
 
                 '''
@@ -348,7 +364,6 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
     gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"], compression=compression)
     gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"], compression=compression)
     gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"], compression=compression)
-
     print("ref\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
 
     hdf5.close()
@@ -365,6 +380,7 @@ def main(argv):
     image2 = 13517
 
     comp = {"szip": [0], "lzf": [0], "gzip": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "no": [0]}
+
     for compression in comp:
         for compression_opts in comp[compression]:
             print()
