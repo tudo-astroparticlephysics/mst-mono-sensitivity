@@ -344,10 +344,16 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
         gr_image.create_dataset('image2', data=image_infos["image2"], compression=compression)
     print("image2\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
     actuelle_time = time.time()
-    gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"], compression=compression)
-    gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"], compression=compression)
-    gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"], compression=compression)
-    gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"], compression=compression)
+    if compression == "no":
+        gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"])
+        gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"])
+        gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"])
+        gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"])
+    else:
+        gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"], compression=compression)
+        gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"], compression=compression)
+        gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"], compression=compression)
+        gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"], compression=compression)
 
     print("ref\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
 
@@ -365,6 +371,8 @@ def main(argv):
     image2 = 13517
 
     comp = {"szip": [0], "lzf": [0], "gzip": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "no": [0]}
+    comp = {"gzip": [9], "no": [0]}
+
     for compression in comp:
         for compression_opts in comp[compression]:
             print()

@@ -7,13 +7,23 @@ import h5py
 import multiprocessing
 
 
+def File_array(PT, BT):
+    Files_temp = os.popen('find preprocess_pickle -name "*' + str(PT) + '*' + str(BT) + '*.pickle"').read().split('\n')
+    Files = []
+    for i in Files_temp:
+        if "pickle" in i:
+            Files.append(i)
+    return Files
+
+
+
 def pi_to_hdf(i, j):
     #print(str(i) + "\t" + str(j))
     Keylist = ["size", "cen_x", "cen_y", "length", "width", "r", "phi", "psi", "miss", "skewness", "kurtosis", "mc_E", "mc_altitude", "mc_azimuth", "mc_core_x", "mc_core_y", "mc_h_first_int", "mc_azimuth_raw", "mc_altitude_raw", "mc_azimuth_cor", "mc_altitude_cor", "mc_time_slice", "mc_refstep", "tel_id", "mc_gamma_proton"]
     Keylist_o = ["mc_E", "mc_altitude", "mc_azimuth", "mc_core_x", "mc_core_y", "mc_h_first_int", "mc_azimuth_raw", "mc_altitude_raw", "mc_azimuth_cor", "mc_altitude_cor", "mc_time_slice", "mc_refstep", "tel_id", "mc_gamma_proton"]
 
     os.system("mkdir -p processes_hdf5")
-    file_n = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    Files = File_array(i, j)
     start = True
     err = False
     Anzahl = 0
@@ -21,12 +31,12 @@ def pi_to_hdf(i, j):
     with pd.HDFStore('processes_hdf5/PT' + str(i) + '_BT' + str(j) + '.hdf5', 'w') as store:
         Ergebnisse_in_hdf = {}
         index_array = []
-        for k in file_n:
+        for filename in Files:
             try:
-                Ergebnisse = pickle.load(open("preprocess_pickle/F" + str(k) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "rb"))["info"]
+                Ergebnisse = pickle.load(open(filename, "rb"))["info"]
             except:
                 continue
-            print(str(i) + "\t" + str(j) + "\t" + str(k))
+            print(str(i) + "\t" + str(j))
 
             for l in range(len(Ergebnisse)):
                 #print(str(l) + "/" + str(len(Ergebnisse)))

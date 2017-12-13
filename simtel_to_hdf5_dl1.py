@@ -2,7 +2,7 @@ from ctapipe.io.hessio import hessio_event_source
 from ctapipe.calib.camera.r1 import HessioR1Calibrator
 from ctapipe.calib.camera.dl0 import CameraDL0Reducer
 from ctapipe.calib.camera import CameraDL1Calibrator
-
+from pathlib import Path
 import pandas as pd
 import sys
 import os
@@ -12,7 +12,7 @@ import h5py
 import time
 from tqdm import tqdm
 from astropy import units as u
-
+import multiprocessing
 from matplotlib import use
 use('Agg')
 import matplotlib.pyplot as plt
@@ -40,7 +40,6 @@ def get_num_filename(argv):
 def set_right_tel(Filename, File_extension):
     right_tel = []
     try:
-        g
         return pickle.load(open("right_tel.pickle", "rb"))
     except:
         right_tel = []
@@ -80,9 +79,9 @@ def set_right_tel(Filename, File_extension):
     '''
     alpha = 1
     for key in Camera_infos.keys():
-        print(key)
+
         # plt.scatter(x, y, marker='o', c=rein_g)
-        print(Camera_infos[key]["Anzahl"])
+
         plt.scatter(Camera_infos[key]["x"], Camera_infos[key]["y"], marker='o', c=Camera_infos[key]["Anzahl"])
         alpha -= 0.25
     plt.colorbar()
@@ -95,8 +94,6 @@ def set_right_tel(Filename, File_extension):
     plt.clf()
     '''
     print(len(right_tel))
-    print(Anzahl)
-    print(anzahl_cut)
     pickle.dump(right_tel, open("right_tel.pickle", "wb"))
     return right_tel
 
@@ -120,8 +117,6 @@ def get_num_events(Filename, right_tel):
                 image1 += 1
             else:
                 image2 += 1
-        if num_events == 25:
-            break
     print(num_events)
     print(anzahl_gesamt)
     print(image1)
@@ -256,9 +251,12 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
         extractor=None,
     )
 
-
+    os.system("mkdir -p hdf5_event")
     if new_data_name == None:
-        new_data_name = Filename.replace(".simtel.gz", "_" + compression + "_" + str(compression_opts) + "_dl1.hdf5")
+        new_data_name = Filename.replace(".simtel.gz", "_" + compression + "_" + str(compression_opts) + "_dl1.hdf5").split("/")
+        new_data_name = "hdf5_event/" + new_data_name[len(new_data_name) -1]
+    if Path(new_data_name).is_file():
+        return True
     if_first = True
     # np.concatenate np.vstack np.hstack np.append
     image1_index = 0
@@ -360,38 +358,53 @@ def transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compr
         gr_image.create_dataset('image2', data=image_infos["image2"], compression=compression)
     print("image2\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
     actuelle_time = time.time()
-    gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"], compression=compression)
-    gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"], compression=compression)
-    gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"], compression=compression)
-    gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"], compression=compression)
+    if compression == "no":
+        gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"])
+        gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"])
+        gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"])
+        gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"])
+    else:
+        gr_image.create_dataset('reference_pulse_shape1', data=image_infos["reference_pulse_shape1"], compression=compression)
+        gr_image.create_dataset('reference_pulse_shape2', data=image_infos["reference_pulse_shape2"], compression=compression)
+        gr_image.create_dataset('photo_electron_image1', data=image_infos["photo_electron_image1"], compression=compression)
+        gr_image.create_dataset('photo_electron_image2', data=image_infos["photo_electron_image2"], compression=compression)
     print("ref\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
 
     hdf5.close()
-    return new_data_name
+    return True
 
 
-def main(argv):
-    Nummer, Filename = get_num_filename(argv)
+def main(Filename, Nummer):
+    #Nummer, Filename = get_num_filename(argv)
     # Filename = "../Master_Daten/PROD3/LaPalma/gamma_20deg_0deg_run1___cta-prod3-lapalma3-2147m-LaPalma.simtel.gz"
     right_tel = set_right_tel(Filename, Nummer + "_")
-    # num_events, image1, image2 = get_num_events(Filename, right_tel)
-    num_events = 2185
-    image1 = 12494
-    image2 = 13517
+    num_events, image1, image2 = get_num_events(Filename, right_tel)
+    #num_events = 2185
+    #image1 = 12494
+    #image2 = 13517
 
     comp = {"szip": [0], "lzf": [0], "gzip": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "no": [0]}
+    comp = {"no": [0]}
 
     for compression in comp:
         for compression_opts in comp[compression]:
-            print()
-            new_data_name = transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compression, compression_opts)
+            transfer_Data_to_hdf5(Filename, right_tel, num_events, image1, image2, compression, compression_opts)
             actuelle_time = time.time()
-            with h5py.File(new_data_name, 'r+') as f:
-                group = f.get('image')
-                for i in group.keys():
-                    info = group[i][20]
-            print("read\t" + compression + "_" + str(compression_opts) + "\t" + str(time.time() - actuelle_time))
-
+    return True
 
 if __name__ == "__main__":
-    main(sys.argv)
+    Files = os.popen('find /home/thomno/Volumes/1TB/PROD3 -name "*.simtel.gz"').read().split('\n')
+    print(Files)
+    pool = multiprocessing.Pool(processes=4)
+    async_result = []
+    for i in range(len(Files)):
+        print(Files[i])
+        if i == len(Files) - 1:
+            continue
+        async_result.append(pool.apply_async(main, (Files[i],Files[i].split("run")[1].split("___")[0])))
+        # time.sleep(120)
+    pool.close()
+
+    for i in range(len(async_result)):
+        print(str(i + 1) + "\t" + str(len(async_result)))
+        geschaftt = async_result[i].get()

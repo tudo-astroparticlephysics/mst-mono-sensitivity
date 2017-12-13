@@ -91,11 +91,11 @@ def set_events_info(event, f_es, i, f_image):
     event.dl1.tel[tel_id].image = []
     if f_es["img_type"][i] == 1:
         event.dl1.tel[tel_id].image = f_image["image1"][f_es["img_index"][i]]
-        #event.mc.tel[tel_id].photo_electron_image = f_image["photo_electron_image1"][f_es["img_index"][i]]
+        event.mc.tel[tel_id].photo_electron_image = f_image["photo_electron_image1"][f_es["img_index"][i]]
         event.mc.tel[tel_id].reference_pulse_shape = f_image["reference_pulse_shape1"][f_es["img_index"][i]]
     else:
         event.dl1.tel[tel_id].image = f_image["image2"][f_es["img_index"][i]]
-        #event.mc.tel[tel_id].photo_electron_image = f_image["photo_electron_image2"][f_es["img_index"][i]]
+        event.mc.tel[tel_id].photo_electron_image = f_image["photo_electron_image2"][f_es["img_index"][i]]
         event.mc.tel[tel_id].reference_pulse_shape = f_image["reference_pulse_shape2"][f_es["img_index"][i]]
 
 
@@ -214,7 +214,7 @@ def process_event(event, dl1, infos_save, E_info):
                 hillas = hillas_parameters(geom, image=clean)
                 event_info = set_hillas(event_info, hillas)
                 event_info = set_mc(event_info, event, tel_id)
-                #event_info = set_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
+                event_info = set_tp(event_info, cleaning_mask, event.mc.tel[tel_id].photo_electron_image)
                 for key in Keylist:
                     if key not in event_info:
                         err = True
@@ -268,7 +268,8 @@ dl1_calibrator = CameraDL1Calibrator(
 infos_save = {}
 E_info = {}
 
-A = [1,2,3,4,5,6,7,8,9]
+
+A = [1,2,3,4,5,6,7,8,9,10,11,12]
 for i in A:
     infos_save[i] = {}
     E_info[i] = {}
@@ -301,9 +302,7 @@ for i in range(len(f_es["tel_id"])):
             event = set_events_info(event, f_es, i, f_image)
         if anzahl != 0:
             num_tel_active.append(tel_active_now)
-            actuelle_time = time.time()
             infos_save, E_info = process_event(event, dl1_calibrator, infos_save, E_info)
-            print("process\t" + str(time.time() - actuelle_time))
         if i != len(f_es["tel_id"]) - 1:
             event_id = f_es["event_id"][i]
             E_Event.append(f_e["mc_E"][event_id])
@@ -312,9 +311,7 @@ for i in range(len(f_es["tel_id"])):
             event.dl0.tels_with_data = []
     else:
         tel_active_now += 1
-    actuelle_time = time.time()
     event = set_events_info(event, f_es, i, f_image)
-    print("set_events\t" + str(time.time() - actuelle_time))
 
     # print Process time
     anzahl += 1
@@ -327,10 +324,8 @@ pbar.close()
 
 pickle.dump(num_tel_active, open("preprocess_pickle/F" + str(nummer) + "_num_tel_active.pickle", "wb"))
 
-print(sum(num_tel_active))
 # save Data
 for i in infos_save.keys():
     for j in infos_save[i].keys():
-        print(E_info[i][j])
         data_container = {"info": infos_save[i][j], "E_events": E_Event, "E_cut": E_info[i][j], "mc_header": mc_header}
         pickle.dump(data_container, open("preprocess_pickle/F" + str(nummer) + "_PT" + str(i) + "_BT" + str(j) + "_ergebnisse.pickle", "wb"))

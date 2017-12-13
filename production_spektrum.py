@@ -14,7 +14,7 @@ bins_def[50] = 350
 
 
 def File_array(PT, BT):
-    Files_temp = os.popen('find preprocess_pickle -name "F2*' + PT + '*' + BT + '*.pickle"').read().split('\n')
+    Files_temp = os.popen('find preprocess_pickle -name "*' + PT + '*' + BT + '*.pickle"').read().split('\n')
     Files = []
     for i in Files_temp:
         if PT in i:
@@ -47,13 +47,27 @@ def Plot_E(Files, Name, alle):
     plt.tight_layout()
     plt.savefig('Bilder/' + Name + '.pdf')
     plt.clf()
-    return n
+    return n, Energie_array
 
+
+def Verteiltung_over_production(E_produktion, Energie_array, bins_def, Name):
+    print(Name + "\t" + str(len(Energie_array)))
+    plt.xscale('log')
+    plt.yscale('log')
+    n, bins, patches = plt.hist(E_produktion, bins=bins_def, facecolor='green')
+    n, bins, patches = plt.hist(Energie_array, bins=bins_def, facecolor='blue')
+    plt.xlabel('E/TeV')
+    plt.ylabel('Anzahl')
+    plt.title(r'Energie Verteiltung')
+    plt.tight_layout()
+    plt.savefig('Bilder/' + Name + '.pdf')
+    plt.clf()
 
 def return_num_etall(Files):
     num_shower = 0
     for filename in Files:
-        num_shower += pickle.load(open(filename, "rb"))["mc_header"]["mc_num_showers"]
+        pickel_file = pickle.load(open(filename, "rb"))["mc_header"]
+        num_shower += pickel_file["mc_num_showers"]*pickel_file["mc_num_use"]
     return num_shower
 
 
@@ -103,7 +117,7 @@ def cal_flaeche(Files):
 
 
 Files = File_array("o", "o")
-n_all = Plot_E(Files, "Verteilung_E", True)
+n_all, Energie_array = Plot_E(Files, "Verteilung_E", True)
 Plot_cog(Files, "Verteilung_COR")
 
 
@@ -113,7 +127,7 @@ Plot_cog(Files, "Verteilung_COR")
 
 
 Files = File_array("7", "2")
-n_cut = Plot_E(Files, "Verteilung_E_cut", False)
+n_cut, Energie_array = Plot_E(Files, "Verteilung_E_cut", False)
 Plot_cog(Files, "Verteilung_COR_cut")
 
 num_shower = return_num_etall(Files)
@@ -143,6 +157,9 @@ plt.tight_layout()
 plt.savefig('Bilder/Produktionsspektrum_E.pdf')
 plt.clf()
 
+Verteiltung_over_production(E_produktion, Energie_array, bins_def, "Verteiltung_Production")
+
+
 create_spektrum(n_cut, n_produkt, "Produktionsspektrum",E_mittel)
 create_spektrum(n_cut, n_all, "Produktionsspektrum_all",E_mittel)
 create_spektrum(n_all, n_produkt, "Produktionsspektrum_all_prod",E_mittel)
@@ -163,12 +180,13 @@ for filename in Files:
     Anzahl_gesamt += Ergebnisse["mc_header"]["mc_num_showers"]
     Anzahl_clean += len(Ergebnisse["E_cut"])
 
-print(Anzahl_gesamt)
-print(len(E_produktion))
-print(Anzahl_clean)
-print(Anzahl_clean / Anzahl_gesamt)
-print(Flaeche)
-print(Flaeche * Anzahl_clean / Anzahl_gesamt)
+print("gesmante_anzahl_an_Schauern:\t\t" + str(Anzahl_gesamt))
+print("gesmante_anzahl_an_Schauern_mit_num_use:\t" + str(num_shower))
+print("gesmante_anzahl_an_Schauern_produziert:\t" + str(len(E_produktion)))
+print("gesmante_anzahl_an_Schauern_nach_Cleaning:\t" + str(Anzahl_clean))
+print("Rate_gesichtet:\t" + str(Anzahl_clean / Anzahl_gesamt))
+print("Gesamte_Fläche:\t" + str(Flaeche))
+print("effektive_Fläche:\t" + str(Flaeche * Anzahl_clean / Anzahl_gesamt))
 
 '''
 Verteilung_E	71574

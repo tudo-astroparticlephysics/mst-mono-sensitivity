@@ -8,6 +8,15 @@ import matplotlib.pyplot as plt
 max_energie = 0
 min_energie = 0
 
+def File_array():
+    Files_temp = os.popen('find preprocess_pickle -name "*num_tel_active.pickle"').read().split('\n')
+    Files = []
+    for i in Files_temp:
+        if "num_tel_active" in i:
+            Files.append(i)
+    return Files
+
+
 
 def plot_sen(rein_g, rein_delta_g, eff_g, eff_delta_g, gen_g, gen_delta_g, nummer, anzahl, name):
     global max_energie
@@ -162,11 +171,11 @@ def plot_sensetivity():
 
 
 def plot_num_tel():
-    file_n = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    Files = File_array()
     Ergebnisse = []
-    for k in file_n:
+    for filename in Files:
         try:
-            Ergebniss = pickle.load(open("preprocess_pickle/F" + str(k) + "_num_tel_active.pickle", "rb"))
+            Ergebniss = pickle.load(open(filename, "rb"))
         except:
             return
         Ergebnisse += Ergebniss
@@ -180,6 +189,16 @@ def plot_num_tel():
     plt.savefig('Bilder/num_tel.pdf')
     plt.clf()
 
+
+'''
+x = np.array([0,1,2,3])
+y = np.array([20,21,22,23])
+my_xticks = ['John','Arnold','Mavis','Matt']
+plt.xticks(x, my_xticks)
+plt.plot(x, y)
+plt.show()
+
+'''
 
 #plot_sensetivity()
 plot_num_tel()

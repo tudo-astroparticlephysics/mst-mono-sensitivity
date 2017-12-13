@@ -5,12 +5,12 @@ import time
 
 def open(name):
     nummer = name.split("run")[1].split("___")[0]
-    os.system('nice -n 10 python3 preprocess_new.py ' + str(nummer) + ' "' + name + '"')
+    os.system('nice -n 10 python3 preprocess_hdf5_new.py ' + str(nummer) + ' "' + name + '"')
     return True
 
 
-Files = os.popen('find ../Master_Daten/PROD3/* -name "*.simtel.gz"').read().split('\n')
-pool = multiprocessing.Pool(processes=4)
+Files = os.popen('find hdf5_event -name "*no_0_dl1.hdf5"').read().split('\n')
+pool = multiprocessing.Pool(processes=1)
 async_result = []
 for i in range(len(Files)):
     if i == len(Files) - 1:
